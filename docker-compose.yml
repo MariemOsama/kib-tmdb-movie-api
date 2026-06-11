@@ -1,0 +1,78 @@
+services:
+  api:
+    build: .
+    container_name: kib-tmdb-movie-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      NODE_ENV: development
+      PORT: 8080
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: kib_movies
+      POSTGRES_USER: kib_user
+      POSTGRES_PASSWORD: kib_password
+      DATABASE_URL: postgresql://kib_user:kib_password@postgres:5432/kib_movies
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_URL: redis://redis:6379
+      TMDB_API_KEY: ${TMDB_API_KEY}
+      TMDB_BASE_URL: https://api.themoviedb.org/3
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:8080/ready').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  tmdb-sync:
+    build: .
+    container_name: kib-tmdb-sync
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      API_BASE_URL: http://api:8080
+      TMDB_SYNC_PAGES: 15
+      TMDB_SYNC_MODE: ${TMDB_SYNC_MODE:-next}
+    command: ["npm", "run", "sync:tmdb"]
+    restart: "no"
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: kib-tmdb-postgres
+    environment:
+      POSTGRES_DB: kib_movies
+      POSTGRES_USER: kib_user
+      POSTGRES_PASSWORD: kib_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kib_user -d kib_movies"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: kib-tmdb-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres-data:
+  redis-data:
