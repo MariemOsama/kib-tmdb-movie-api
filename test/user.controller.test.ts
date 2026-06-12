@@ -1,14 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { CurrentUserController } from '../src/user/current-user.controller.js';
 import type { UserMovieListType } from '../src/user/user-movie-list.types.js';
 import type { UserMovieListsService } from '../src/user/user-movie-lists.service.js';
+import { UserController } from '../src/user/user.controller.js';
 
 const user = { id: 7, email: 'mariem@example.com' };
 
 void test('watchlist endpoints delegate with current user id', async () => {
   const service = new FakeUserMovieListsService();
-  const controller = new CurrentUserController(
+  const controller = new UserController(
     service as unknown as UserMovieListsService,
   );
 
@@ -25,7 +25,7 @@ void test('watchlist endpoints delegate with current user id', async () => {
 
 void test('favorites endpoints delegate with current user id', async () => {
   const service = new FakeUserMovieListsService();
-  const controller = new CurrentUserController(
+  const controller = new UserController(
     service as unknown as UserMovieListsService,
   );
 

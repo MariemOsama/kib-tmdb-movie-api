@@ -8,8 +8,20 @@ async function bootstrap(): Promise<void> {
   const port = Number(process.env.PORT ?? 8080);
   const swaggerConfig = new DocumentBuilder()
     .setTitle('KIB TMDB Movie API')
-    .setDescription('API foundation for the KIB TMDB movie coding challenge.')
-    .setVersion('0.1.0')
+    .setDescription(
+      'TMDB movie catalog API with PostgreSQL persistence, Redis readiness checks, register/login authentication, secured movie endpoints, and TMDB popular-movie sync.',
+    )
+    .setVersion('0.0.1')
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        description:
+          'Paste the accessToken returned from /auth/register or /auth/login. Do not include the Bearer prefix.',
+      },
+      'access-token',
+    )
     .build();
   const document = SwaggerModule.createDocument(app, swaggerConfig);
 

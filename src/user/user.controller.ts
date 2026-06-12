@@ -28,10 +28,10 @@ import {
 import { UserMovieListsService } from './user-movie-lists.service.js';
 
 @ApiTags('user')
-@ApiBearerAuth()
+@ApiBearerAuth('access-token')
 @UseGuards(AuthGuard)
 @Controller('user')
-export class CurrentUserController {
+export class UserController {
   constructor(private readonly userMovieListsService: UserMovieListsService) {}
 
   @Get('watchlist')
