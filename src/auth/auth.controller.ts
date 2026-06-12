@@ -4,13 +4,18 @@ import {
   ApiBody,
   ApiConflictResponse,
   ApiCreatedResponse,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { AuthService } from './auth.service.js';
-import * as authTypes from './auth.types.js';
+import type {
+  AuthResult,
+  LoginRequest,
+  RegisterRequest,
+} from './auth.types.js';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -49,9 +54,7 @@ export class AuthController {
     description: 'Email or password does not meet validation rules.',
   })
   @ApiConflictResponse({ description: 'Email is already registered.' })
-  register(
-    @Body() request: authTypes.RegisterRequest,
-  ): Promise<authTypes.AuthResult> {
+  register(@Body() request: RegisterRequest): Promise<AuthResult> {
     return this.authService.register(request);
   }
 
@@ -83,10 +86,10 @@ export class AuthController {
       },
     },
   })
-  @ApiUnauthorizedResponse({ description: 'Email or password is invalid.' })
-  login(
-    @Body() request: authTypes.LoginRequest,
-  ): Promise<authTypes.AuthResult> {
+  @ApiBadRequestResponse({ description: 'Email is invalid.' })
+  @ApiNotFoundResponse({ description: 'User does not exist.' })
+  @ApiUnauthorizedResponse({ description: 'Password is invalid.' })
+  login(@Body() request: LoginRequest): Promise<AuthResult> {
     return this.authService.login(request);
   }
 }

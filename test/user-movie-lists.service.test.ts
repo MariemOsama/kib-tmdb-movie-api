@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { UserMovieListsService } from '../src/user/user-movie-lists.service.js';
+import type { MovieCacheService } from '../src/movies/movie-cache.service.js';
 import type { Movie } from '../src/movies/movie.types.js';
 import type { UserMovieListType } from '../src/user/user-movie-list.types.js';
 import type { UserMovieListsRepository } from '../src/user/user-movie-lists.repository.js';
@@ -37,6 +38,7 @@ void test('list returns the requested user movie list', async () => {
   const repository = new FakeUserMovieListsRepository();
   const service = new UserMovieListsService(
     repository as unknown as UserMovieListsRepository,
+    new FakeMovieCacheService() as unknown as MovieCacheService,
   );
 
   const result = await service.list(7, {
@@ -70,6 +72,7 @@ void test('add returns idempotent add result', async () => {
   const repository = new FakeUserMovieListsRepository();
   const service = new UserMovieListsService(
     repository as unknown as UserMovieListsRepository,
+    new FakeMovieCacheService() as unknown as MovieCacheService,
   );
 
   const result = await service.add(7, 10, 'favorites');
@@ -86,6 +89,7 @@ void test('remove returns idempotent removal result', async () => {
   const repository = new FakeUserMovieListsRepository();
   const service = new UserMovieListsService(
     repository as unknown as UserMovieListsRepository,
+    new FakeMovieCacheService() as unknown as MovieCacheService,
   );
 
   const result = await service.remove(7, 10, 'watchlist');
@@ -96,6 +100,24 @@ void test('remove returns idempotent removal result', async () => {
     listType: 'watchlist',
   });
   assert.deepEqual(result, { list: 'watchlist', movieId: 10, removed: true });
+});
+
+void test('list uses cache so repeated user-list reads hit the repository once', async () => {
+  const repository = new FakeUserMovieListsRepository();
+  const service = new UserMovieListsService(
+    repository as unknown as UserMovieListsRepository,
+    new FakeMovieCacheService() as unknown as MovieCacheService,
+  );
+
+  const query = {
+    listType: 'watchlist' as const,
+    options: { search: 'saved', filter: 'all' as const, limit: 20, offset: 0 },
+  };
+
+  await service.list(7, query);
+  await service.list(7, query);
+
+  assert.equal(repository.listCallCount, 1);
 });
 
 class FakeUserMovieListsRepository {
@@ -121,6 +143,7 @@ class FakeUserMovieListsRepository {
     movieId: number;
     listType: UserMovieListType;
   };
+  listCallCount = 0;
 
   list(
     userId: number,
@@ -134,6 +157,7 @@ class FakeUserMovieListsRepository {
       offset: number;
     },
   ): Promise<Movie[]> {
+    this.listCallCount += 1;
     this.lastListCall = { userId, listType, options };
     return Promise.resolve([movie]);
   }
@@ -154,5 +178,43 @@ class FakeUserMovieListsRepository {
   ): Promise<boolean> {
     this.lastRemoveCall = { userId, movieId, listType };
     return Promise.resolve(true);
+  }
+}
+
+class FakeMovieCacheService {
+  private readonly values = new Map<string, unknown>();
+
+  getOrSet<T>(
+    key: string,
+    _ttlSeconds: number,
+    loader: () => Promise<T>,
+  ): Promise<T> {
+    if (this.values.has(key)) {
+      return Promise.resolve(this.values.get(key) as T);
+    }
+
+    return loader().then((value) => {
+      this.values.set(key, value);
+      return value;
+    });
+  }
+
+  userMovieListKey(
+    userId: number,
+    listType: string,
+    options: unknown,
+  ): Promise<string> {
+    return Promise.resolve(
+      `users:list:${userId}:${listType}:${JSON.stringify(options)}`,
+    );
+  }
+
+  invalidateUser(): Promise<void> {
+    this.values.clear();
+    return Promise.resolve();
+  }
+
+  movieTtlSeconds(): number {
+    return 60;
   }
 }
