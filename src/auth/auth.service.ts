@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { AuthRepository } from './auth.repository.js';
@@ -37,9 +38,10 @@ export class AuthService {
 
   async login(request: LoginRequest): Promise<AuthResult> {
     const email = normalizeEmail(request.email);
+    validateEmail(email);
     const user = await this.authRepository.findByEmail(email);
     if (!user) {
-      throw new UnauthorizedException('Invalid email or password');
+      throw new NotFoundException('User does not exist');
     }
 
     const passwordMatches = await this.passwordService.verify(
@@ -68,13 +70,17 @@ function normalizeEmail(email: string): string {
 }
 
 function validateCredentials(email: string, password: string): void {
-  if (!EMAIL_PATTERN.test(email)) {
-    throw new BadRequestException('A valid email is required');
-  }
+  validateEmail(email);
 
   if (password.length < MIN_PASSWORD_LENGTH) {
     throw new BadRequestException(
       `Password must be at least ${MIN_PASSWORD_LENGTH} characters`,
     );
+  }
+}
+
+function validateEmail(email: string): void {
+  if (!EMAIL_PATTERN.test(email)) {
+    throw new BadRequestException('A valid email is required');
   }
 }
