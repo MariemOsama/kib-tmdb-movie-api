@@ -39,11 +39,29 @@ void test('list returns the requested user movie list', async () => {
     repository as unknown as UserMovieListsRepository,
   );
 
-  const result = await service.list(7, 'watchlist');
+  const result = await service.list(7, {
+    listType: 'watchlist',
+    options: {
+      search: '  saved  ',
+      filter: 'rated_by_me',
+      year: 2026,
+      genreId: 18,
+      limit: 500,
+      offset: 3,
+    },
+  });
 
   assert.deepEqual(repository.lastListCall, {
     userId: 7,
     listType: 'watchlist',
+    options: {
+      search: 'saved',
+      filter: 'rated_by_me',
+      year: 2026,
+      genreId: 18,
+      limit: 100,
+      offset: 3,
+    },
   });
   assert.deepEqual(result, { list: 'watchlist', movies: [movie] });
 });
@@ -81,7 +99,18 @@ void test('remove returns idempotent removal result', async () => {
 });
 
 class FakeUserMovieListsRepository {
-  lastListCall?: { userId: number; listType: UserMovieListType };
+  lastListCall?: {
+    userId: number;
+    listType: UserMovieListType;
+    options: {
+      search?: string;
+      filter: string;
+      year?: number;
+      genreId?: number;
+      limit: number;
+      offset: number;
+    };
+  };
   lastAddCall?: {
     userId: number;
     movieId: number;
@@ -93,8 +122,19 @@ class FakeUserMovieListsRepository {
     listType: UserMovieListType;
   };
 
-  list(userId: number, listType: UserMovieListType): Promise<Movie[]> {
-    this.lastListCall = { userId, listType };
+  list(
+    userId: number,
+    listType: UserMovieListType,
+    options: {
+      search?: string;
+      filter: string;
+      year?: number;
+      genreId?: number;
+      limit: number;
+      offset: number;
+    },
+  ): Promise<Movie[]> {
+    this.lastListCall = { userId, listType, options };
     return Promise.resolve([movie]);
   }
 

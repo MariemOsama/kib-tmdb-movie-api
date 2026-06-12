@@ -1,4 +1,5 @@
 import type { Movie } from '../movies/movie.types.js';
+import type { MovieSearchOptions } from '../movies/movie.types.js';
 
 export type UserMovieListType = 'watchlist' | 'favorites';
 
@@ -17,4 +18,9 @@ export interface UserMovieListRemovalResult {
 export interface UserMovieListResponse {
   list: UserMovieListType;
   movies: Movie[];
+}
+
+export interface UserMovieListQuery {
+  listType: UserMovieListType;
+  options?: Partial<MovieSearchOptions>;
 }

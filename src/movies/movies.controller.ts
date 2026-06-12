@@ -24,13 +24,18 @@ import {
 import { AuthGuard } from '../auth/auth.guard.js';
 import type { AuthenticatedUser } from '../auth/auth.types.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
-import type {
+import {
   Genre,
   Movie,
+  type MovieFilter,
   MovieRatingResult,
   RateMovieRequest,
-  SyncMode,
+  type SyncMode,
 } from './movie.types.js';
+import {
+  ApiMovieQueryDocs,
+  buildMovieSearchOptionsFromQuery,
+} from './movie-query.js';
 import { MoviesService } from './movies.service.js';
 
 @ApiTags('movies')
@@ -44,8 +49,9 @@ export class MoviesController {
   @ApiOperation({
     summary: 'List synced movies',
     description:
-      'Returns the movie catalog currently stored in PostgreSQL, ordered by TMDB popularity and title. Each movie includes user-specific isFavorite and isInWatchlist flags for the authenticated user. The catalog is populated by the TMDB sync endpoint or the Docker sync job. Requires a bearer token from login/register.',
+      'Returns the movie catalog currently stored in PostgreSQL, ordered by relevance when search is provided, then by TMDB popularity and title. Each movie includes user-specific isFavorite, isInWatchlist, myRating, usersRatingAverage, and userRatingCount fields for the authenticated user. The catalog is populated by the TMDB sync endpoint or the Docker sync job. Requires a bearer token from login/register.',
   })
+  @ApiMovieQueryDocs()
   @ApiOkResponse({
     description: 'Movies stored in PostgreSQL.',
     schema: {
@@ -83,8 +89,26 @@ export class MoviesController {
   @ApiUnauthorizedResponse({
     description: 'Bearer token is missing, invalid, or expired.',
   })
-  list(@CurrentUser() user: AuthenticatedUser): Promise<Movie[]> {
-    return this.moviesService.list(user.id);
+  list(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('search') search?: string,
+    @Query('limit') limit = '20',
+    @Query('filter') filter: MovieFilter = 'all',
+    @Query('year') year?: string,
+    @Query('genreId') genreId?: string,
+    @Query('offset') offset = '0',
+  ): Promise<Movie[]> {
+    return this.moviesService.list(
+      user.id,
+      buildMovieSearchOptionsFromQuery(
+        search,
+        limit,
+        filter,
+        year,
+        genreId,
+        offset,
+      ),
+    );
   }
 
   @Get('genres')

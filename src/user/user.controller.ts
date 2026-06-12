@@ -5,6 +5,7 @@ import {
   Param,
   ParseIntPipe,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -18,8 +19,13 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { AuthGuard } from '../auth/auth.guard.js';
-import * as authTypes from '../auth/auth.types.js';
+import type { AuthenticatedUser } from '../auth/auth.types.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
+import {
+  ApiMovieQueryDocs,
+  buildMovieSearchOptionsFromQuery,
+} from '../movies/movie-query.js';
+import { type MovieFilter } from '../movies/movie.types.js';
 import {
   UserMovieListRemovalResult,
   UserMovieListResponse,
@@ -40,6 +46,7 @@ export class UserController {
     description:
       "Returns the current user's watchlist movies ordered by the time they were added.",
   })
+  @ApiMovieQueryDocs()
   @ApiOkResponse({
     description: "Current user's watchlist movies.",
     schema: { example: buildListExample('watchlist') },
@@ -48,9 +55,25 @@ export class UserController {
     description: 'Bearer token is missing, invalid, expired.',
   })
   watchlist(
-    @CurrentUser() user: authTypes.AuthenticatedUser,
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('search') search?: string,
+    @Query('limit') limit = '20',
+    @Query('filter') filter: MovieFilter = 'all',
+    @Query('year') year?: string,
+    @Query('genreId') genreId?: string,
+    @Query('offset') offset = '0',
   ): Promise<UserMovieListResponse> {
-    return this.userMovieListsService.list(user.id, 'watchlist');
+    return this.userMovieListsService.list(user.id, {
+      listType: 'watchlist',
+      options: buildMovieSearchOptionsFromQuery(
+        search,
+        limit,
+        filter,
+        year,
+        genreId,
+        offset,
+      ),
+    });
   }
 
   @Post('watchlist/:movieId')
@@ -75,7 +98,7 @@ export class UserController {
     description: 'Movie does not exist in the local catalog.',
   })
   addToWatchlist(
-    @CurrentUser() user: authTypes.AuthenticatedUser,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('movieId', ParseIntPipe) movieId: number,
   ): Promise<UserMovieListResult> {
     return this.userMovieListsService.add(user.id, movieId, 'watchlist');
@@ -99,7 +122,7 @@ export class UserController {
     description: 'Bearer token is missing, invalid, expired.',
   })
   removeFromWatchlist(
-    @CurrentUser() user: authTypes.AuthenticatedUser,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('movieId', ParseIntPipe) movieId: number,
   ): Promise<UserMovieListRemovalResult> {
     return this.userMovieListsService.remove(user.id, movieId, 'watchlist');
@@ -111,6 +134,7 @@ export class UserController {
     description:
       "Returns the current user's favorite movies ordered by the time they were added.",
   })
+  @ApiMovieQueryDocs()
   @ApiOkResponse({
     description: "Authenticated user's favorite movies.",
     schema: { example: buildListExample('favorites') },
@@ -119,9 +143,25 @@ export class UserController {
     description: 'Bearer token is missing, invalid, expired.',
   })
   favorites(
-    @CurrentUser() user: authTypes.AuthenticatedUser,
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('search') search?: string,
+    @Query('limit') limit = '20',
+    @Query('filter') filter: MovieFilter = 'all',
+    @Query('year') year?: string,
+    @Query('genreId') genreId?: string,
+    @Query('offset') offset = '0',
   ): Promise<UserMovieListResponse> {
-    return this.userMovieListsService.list(user.id, 'favorites');
+    return this.userMovieListsService.list(user.id, {
+      listType: 'favorites',
+      options: buildMovieSearchOptionsFromQuery(
+        search,
+        limit,
+        filter,
+        year,
+        genreId,
+        offset,
+      ),
+    });
   }
 
   @Post('favorites/:movieId')
@@ -146,7 +186,7 @@ export class UserController {
     description: 'Movie does not exist in the local catalog.',
   })
   addToFavorites(
-    @CurrentUser() user: authTypes.AuthenticatedUser,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('movieId', ParseIntPipe) movieId: number,
   ): Promise<UserMovieListResult> {
     return this.userMovieListsService.add(user.id, movieId, 'favorites');
@@ -170,7 +210,7 @@ export class UserController {
     description: 'Bearer token is missing, invalid, expired.',
   })
   removeFromFavorites(
-    @CurrentUser() user: authTypes.AuthenticatedUser,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('movieId', ParseIntPipe) movieId: number,
   ): Promise<UserMovieListRemovalResult> {
     return this.userMovieListsService.remove(user.id, movieId, 'favorites');

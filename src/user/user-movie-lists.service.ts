@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
+import { normalizeMovieSearchOptions } from '../movies/movie-query.js';
 import {
   UserMovieListRemovalResult,
+  UserMovieListQuery,
   UserMovieListResponse,
   UserMovieListResult,
   UserMovieListType,
@@ -15,11 +17,15 @@ export class UserMovieListsService {
 
   async list(
     userId: number,
-    listType: UserMovieListType,
+    query: UserMovieListQuery,
   ): Promise<UserMovieListResponse> {
-    const movies = await this.userMovieListsRepository.list(userId, listType);
+    const movies = await this.userMovieListsRepository.list(
+      userId,
+      query.listType,
+      normalizeMovieSearchOptions(query.options ?? {}),
+    );
 
-    return { list: listType, movies };
+    return { list: query.listType, movies };
   }
 
   async add(

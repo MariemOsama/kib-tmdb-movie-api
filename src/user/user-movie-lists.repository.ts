@@ -1,6 +1,11 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service.js';
-import { Movie } from '../movies/movie.types.js';
+import { Movie, MovieSearchOptions } from '../movies/movie.types.js';
+import {
+  buildMovieQueryParams,
+  MOVIE_QUERY_FILTER_SQL,
+  MOVIE_QUERY_RELEVANCE_ORDER_SQL,
+} from '../movies/movie-query.js';
 import { UserMovieListType } from './user-movie-list.types.js';
 
 interface MovieCatalogRecord {
@@ -35,7 +40,11 @@ interface MovieCatalogRecord {
 export class UserMovieListsRepository {
   constructor(private readonly database: DatabaseService) {}
 
-  async list(userId: number, listType: UserMovieListType): Promise<Movie[]> {
+  async list(
+    userId: number,
+    listType: UserMovieListType,
+    options: MovieSearchOptions,
+  ): Promise<Movie[]> {
     const tableName = getListTableName(listType);
     const result = await this.database.query<MovieCatalogRecord>(
       `
@@ -90,10 +99,16 @@ export class UserMovieListsRepository {
       LEFT JOIN movie_genres mg ON mg.movie_id = m.id
       LEFT JOIN genres g ON g.id = mg.genre_id
       WHERE uml.user_id = $1
+      ${MOVIE_QUERY_FILTER_SQL}
       GROUP BY m.id, uml.created_at
-      ORDER BY uml.created_at DESC
+      ORDER BY
+        ${MOVIE_QUERY_RELEVANCE_ORDER_SQL},
+        uml.created_at DESC,
+        m.title ASC
+      LIMIT $3
+      OFFSET $4
     `,
-      [userId],
+      buildMovieQueryParams(userId, options),
     );
 
     return result.rows.map(mapMovieCatalogRecordToMovie);

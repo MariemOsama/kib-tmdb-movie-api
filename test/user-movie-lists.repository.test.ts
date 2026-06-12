@@ -43,10 +43,34 @@ void test("list maps a user's watchlist movies", async () => {
     database as unknown as DatabaseService,
   );
 
-  const result = await repository.list(7, 'watchlist');
+  const result = await repository.list(7, 'watchlist', {
+    search: 'saved_',
+    filter: 'upcoming',
+    year: 2026,
+    genreId: 28,
+    limit: 10,
+    offset: 5,
+  });
 
-  assert.equal(database.calls[0]?.params[0], 7);
+  assert.deepEqual(database.calls[0]?.params, [
+    7,
+    '%saved\\_%',
+    10,
+    5,
+    'upcoming',
+    2026,
+    28,
+  ]);
   assert.match(database.calls[0]?.text ?? '', /FROM user_watchlist uml/);
+  assert.match(database.calls[0]?.text ?? '', /m.title ILIKE \$2 ESCAPE/);
+  assert.match(database.calls[0]?.text ?? '', /upcoming/);
+  assert.match(
+    database.calls[0]?.text ?? '',
+    /EXTRACT\(YEAR FROM m\.release_date\)::int = \$6/,
+  );
+  assert.match(database.calls[0]?.text ?? '', /filter_mg\.genre_id = \$7/);
+  assert.match(database.calls[0]?.text ?? '', /LIMIT \$3/);
+  assert.match(database.calls[0]?.text ?? '', /OFFSET \$4/);
   assert.deepEqual(result[0], {
     id: 10,
     title: 'Saved Movie',
