@@ -58,8 +58,24 @@ CREATE TABLE IF NOT EXISTS users (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS user_watchlist (
+  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  movie_id BIGINT NOT NULL REFERENCES movies(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (user_id, movie_id)
+);
+
+CREATE TABLE IF NOT EXISTS user_favorites (
+  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  movie_id BIGINT NOT NULL REFERENCES movies(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (user_id, movie_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_movies_title ON movies USING btree (title);
 CREATE INDEX IF NOT EXISTS idx_movies_release_date ON movies (release_date);
 CREATE INDEX IF NOT EXISTS idx_movies_popularity ON movies (popularity DESC);
 CREATE INDEX IF NOT EXISTS idx_movie_genres_genre_id ON movie_genres (genre_id);
 CREATE INDEX IF NOT EXISTS idx_users_email ON users (email);
+CREATE INDEX IF NOT EXISTS idx_user_watchlist_user_created_at ON user_watchlist (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_user_favorites_user_created_at ON user_favorites (user_id, created_at DESC);
