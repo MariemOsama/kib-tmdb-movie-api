@@ -11,7 +11,7 @@ import { RedisModule } from '../redis/redis.module.js';
 @Module({
   imports: [AuthModule, DatabaseModule, RedisModule],
   controllers: [MoviesController],
-  providers: [MoviesRepository, MoviesService, TmdbClient],
+  providers: [MoviesRepository, MoviesService, TmdbClient, MovieCacheService],
   exports: [MovieCacheService],
 })
 export class MoviesModule {}
