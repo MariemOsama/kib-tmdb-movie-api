@@ -6,6 +6,8 @@ import type { MoviesRepository } from '../src/movies/movies.repository.js';
 import type { TmdbClient } from '../src/movies/tmdb.client.js';
 import type {
   Genre,
+  Movie,
+  MovieRatingResult,
   SyncMode,
   TmdbMovie,
   TmdbMoviePage,
@@ -47,6 +49,34 @@ const movieTwo: TmdbMovie = {
   backdropPath: '/backdrop-two.jpg',
   imdbId: 'tt0000002',
   genreIds: [53],
+};
+
+const storedMovie: Movie = {
+  id: 1,
+  title: 'First Movie',
+  originalTitle: 'First Movie',
+  overview: 'Overview',
+  releaseDate: '2026-01-01',
+  posterPath: '/poster-one.jpg',
+  backdropPath: '/backdrop-one.jpg',
+  originalLanguage: 'en',
+  status: 'Released',
+  runtimeMinutes: 100,
+  budget: 1000,
+  revenue: 2000,
+  tagline: 'One',
+  homepage: null,
+  imdbId: 'tt0000001',
+  popularity: 10,
+  tmdbRatingAverage: 7.5,
+  tmdbRatingCount: 50,
+  usersRatingAverage: 8.5,
+  userRatingCount: 2,
+  myRating: 9,
+  syncedAt: '2026-06-11T12:00:00.000Z',
+  genres: ['Action'],
+  isFavorite: true,
+  isInWatchlist: false,
 };
 
 void test('syncPopularMovies syncs genres, requested pages, deduped movies, and completes state', async () => {
@@ -104,6 +134,58 @@ void test('syncPopularMovies clamps page count and passes refresh mode', async (
   assert.deepEqual(result.pages, [20, 21]);
 });
 
+void test('details returns a movie for the current user', async () => {
+  const repository = new FakeMoviesRepository([]);
+  const service = new MoviesService(
+    repository as unknown as MoviesRepository,
+    new FakeTmdbClient([]) as unknown as TmdbClient,
+    new FakeConfigService() as unknown as ConfigService,
+  );
+
+  const result = await service.details(7, 1);
+
+  assert.deepEqual(repository.lastFindByIdCall, { userId: 7, movieId: 1 });
+  assert.deepEqual(result, storedMovie);
+});
+
+void test('rateMovie validates and stores a whole-number user rating', async () => {
+  const repository = new FakeMoviesRepository([]);
+  const service = new MoviesService(
+    repository as unknown as MoviesRepository,
+    new FakeTmdbClient([]) as unknown as TmdbClient,
+    new FakeConfigService() as unknown as ConfigService,
+  );
+
+  const result = await service.rateMovie(7, 1, 9);
+
+  assert.deepEqual(repository.lastRateCall, {
+    userId: 7,
+    movieId: 1,
+    rating: 9,
+  });
+  assert.deepEqual(result, {
+    movieId: 1,
+    rating: 9,
+    usersRatingAverage: 9,
+    userRatingCount: 1,
+  });
+});
+
+void test('rateMovie rejects ratings outside 1 through 10', async () => {
+  const repository = new FakeMoviesRepository([]);
+  const service = new MoviesService(
+    repository as unknown as MoviesRepository,
+    new FakeTmdbClient([]) as unknown as TmdbClient,
+    new FakeConfigService() as unknown as ConfigService,
+  );
+
+  await assert.rejects(
+    service.rateMovie(7, 1, 11),
+    /Rating must be an integer between 1 and 10/,
+  );
+  assert.equal(repository.lastRateCall, undefined);
+});
+
 class FakeMoviesRepository {
   upsertedGenres: Genre[] = [];
   upsertedMovieIds: number[] = [];
@@ -114,6 +196,8 @@ class FakeMoviesRepository {
     totalPages: number;
     mode: SyncMode;
   };
+  lastFindByIdCall?: { userId: number; movieId: number };
+  lastRateCall?: { userId: number; movieId: number; rating: number };
 
   constructor(private readonly pagesToSync: number[]) {}
 
@@ -144,6 +228,25 @@ class FakeMoviesRepository {
   ): Promise<void> {
     this.completedSync = { source, syncedPages, totalPages, mode };
     return Promise.resolve();
+  }
+
+  findById(userId: number, movieId: number): Promise<Movie | null> {
+    this.lastFindByIdCall = { userId, movieId };
+    return Promise.resolve(storedMovie);
+  }
+
+  rate(
+    userId: number,
+    movieId: number,
+    rating: number,
+  ): Promise<MovieRatingResult> {
+    this.lastRateCall = { userId, movieId, rating };
+    return Promise.resolve({
+      movieId,
+      rating,
+      usersRatingAverage: rating,
+      userRatingCount: 1,
+    });
   }
 }
 
