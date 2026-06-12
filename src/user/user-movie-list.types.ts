@@ -1,4 +1,4 @@
-import type { Movie } from '../movies/movie.types.js';
+import type { Movie, PaginatedResponse } from '../movies/movie.types.js';
 import type { MovieSearchOptions } from '../movies/movie.types.js';
 
 export type UserMovieListType = 'watchlist' | 'favorites';
@@ -15,9 +15,8 @@ export interface UserMovieListRemovalResult {
   removed: boolean;
 }
 
-export interface UserMovieListResponse {
+export interface UserMovieListResponse extends PaginatedResponse<Movie> {
   list: UserMovieListType;
-  movies: Movie[];
 }
 
 export interface UserMovieListQuery {

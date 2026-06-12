@@ -155,7 +155,10 @@ void test('list normalizes search, limit, and offset before querying', async () 
     offset: 10,
   });
 
-  assert.deepEqual(result, [storedMovie]);
+  assert.deepEqual(result, {
+    data: [storedMovie],
+    pagination: { limit: 100, offset: 10, count: 1, hasMore: false },
+  });
   assert.deepEqual(repository.lastListCall, {
     userId: 7,
     options: {
@@ -163,7 +166,7 @@ void test('list normalizes search, limit, and offset before querying', async () 
       filter: 'highly_rated',
       year: 2026,
       genreId: 27,
-      limit: 100,
+      limit: 101,
       offset: 10,
     },
   });
@@ -222,6 +225,21 @@ void test('rateMovie rejects ratings outside 1 through 10', async () => {
     /Rating must be an integer between 1 and 10/,
   );
   assert.equal(repository.lastRateCall, undefined);
+});
+
+void test('list uses cache so repeated reads hit the repository once', async () => {
+  const repository = new FakeMoviesRepository([]);
+  const service = new MoviesService(
+    repository as unknown as MoviesRepository,
+    new FakeTmdbClient([]) as unknown as TmdbClient,
+    new FakeConfigService() as unknown as ConfigService,
+    new FakeMovieCacheService() as unknown as MovieCacheService,
+  );
+
+  await service.list(7, { search: 'first', limit: 20, offset: 0 });
+  await service.list(7, { search: 'first', limit: 20, offset: 0 });
+
+  assert.equal(repository.listCallCount, 1);
 });
 
 class FakeMoviesRepository {

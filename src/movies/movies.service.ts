@@ -4,9 +4,11 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { buildPaginatedResponse } from '../common/pagination.js';
 import {
   Genre,
   Movie,
+  MovieListResponse,
   MovieRatingResult,
   MovieSearchOptions,
   SyncMode,
@@ -31,11 +33,20 @@ export class MoviesService {
   async list(
     userId: number,
     options: Partial<MovieSearchOptions> = {},
-  ): Promise<Movie[]> {
-    return this.moviesRepository.list(
-      userId,
-      normalizeMovieSearchOptions(options),
-    );
+  ): Promise<MovieListResponse> {
+    const normalizedOptions = normalizeMovieSearchOptions(options);
+    const key = await this.cache.movieListKey(userId, normalizedOptions);
+    return this.cache.getOrSet(key, this.cache.movieTtlSeconds(), async () => {
+      const movies = await this.moviesRepository.list(userId, {
+        ...normalizedOptions,
+        limit: normalizedOptions.limit + 1,
+      });
+      return buildPaginatedResponse(
+        movies,
+        normalizedOptions.limit,
+        normalizedOptions.offset,
+      );
+    });
   }
 
   async details(userId: number, movieId: number): Promise<Movie> {

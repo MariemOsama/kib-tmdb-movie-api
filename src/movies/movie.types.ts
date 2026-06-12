@@ -26,6 +26,20 @@ export interface Movie {
   isInWatchlist: boolean;
 }
 
+export interface PaginationMetadata {
+  limit: number;
+  offset: number;
+  count: number;
+  hasMore: boolean;
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  pagination: PaginationMetadata;
+}
+
+export type MovieListResponse = PaginatedResponse<Movie>;
+
 export interface MovieRatingResult {
   movieId: number;
   rating: number;

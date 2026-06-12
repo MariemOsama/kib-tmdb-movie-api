@@ -61,11 +61,20 @@ void test('list returns the requested user movie list', async () => {
       filter: 'rated_by_me',
       year: 2026,
       genreId: 18,
-      limit: 100,
+      limit: 101,
       offset: 3,
     },
   });
-  assert.deepEqual(result, { list: 'watchlist', movies: [movie] });
+  assert.deepEqual(result, {
+    list: 'watchlist',
+    data: [movie],
+    pagination: {
+      limit: 100,
+      offset: 3,
+      count: 1,
+      hasMore: false,
+    },
+  });
 });
 
 void test('add returns idempotent add result', async () => {
