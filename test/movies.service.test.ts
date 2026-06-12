@@ -134,6 +134,37 @@ void test('syncPopularMovies clamps page count and passes refresh mode', async (
   assert.deepEqual(result.pages, [20, 21]);
 });
 
+void test('list normalizes search, limit, and offset before querying', async () => {
+  const repository = new FakeMoviesRepository([]);
+  const service = new MoviesService(
+    repository as unknown as MoviesRepository,
+    new FakeTmdbClient([]) as unknown as TmdbClient,
+    new FakeConfigService() as unknown as ConfigService,
+  );
+
+  const result = await service.list(7, {
+    search: '  obsession  ',
+    filter: 'highly_rated',
+    year: 2026,
+    genreId: 27,
+    limit: 500,
+    offset: 10,
+  });
+
+  assert.deepEqual(result, [storedMovie]);
+  assert.deepEqual(repository.lastListCall, {
+    userId: 7,
+    options: {
+      search: 'obsession',
+      filter: 'highly_rated',
+      year: 2026,
+      genreId: 27,
+      limit: 100,
+      offset: 10,
+    },
+  });
+});
+
 void test('details returns a movie for the current user', async () => {
   const repository = new FakeMoviesRepository([]);
   const service = new MoviesService(
@@ -196,6 +227,17 @@ class FakeMoviesRepository {
     totalPages: number;
     mode: SyncMode;
   };
+  lastListCall?: {
+    userId: number;
+    options: {
+      search?: string;
+      filter: string;
+      year?: number;
+      genreId?: number;
+      limit: number;
+      offset: number;
+    };
+  };
   lastFindByIdCall?: { userId: number; movieId: number };
   lastRateCall?: { userId: number; movieId: number; rating: number };
 
@@ -228,6 +270,21 @@ class FakeMoviesRepository {
   ): Promise<void> {
     this.completedSync = { source, syncedPages, totalPages, mode };
     return Promise.resolve();
+  }
+
+  list(
+    userId: number,
+    options: {
+      search?: string;
+      filter: string;
+      year?: number;
+      genreId?: number;
+      limit: number;
+      offset: number;
+    },
+  ): Promise<Movie[]> {
+    this.lastListCall = { userId, options };
+    return Promise.resolve([storedMovie]);
   }
 
   findById(userId: number, movieId: number): Promise<Movie | null> {

@@ -42,9 +42,21 @@ void test('list maps database records into movie catalog objects', async () => {
     database as unknown as DatabaseService,
   );
 
-  const result = await repository.list(7);
+  const result = await repository.list(7, {
+    filter: 'all',
+    limit: 20,
+    offset: 0,
+  });
 
-  assert.deepEqual(database.calls[0]?.params, [7]);
+  assert.deepEqual(database.calls[0]?.params, [
+    7,
+    null,
+    20,
+    0,
+    'all',
+    null,
+    null,
+  ]);
 
   assert.deepEqual(result, [
     {
@@ -74,6 +86,42 @@ void test('list maps database records into movie catalog objects', async () => {
       isFavorite: true,
       isInWatchlist: false,
     },
+  ]);
+});
+
+void test('list applies escaped search term with pagination', async () => {
+  const database = new FakeDatabase([{ rows: [] }]);
+  const repository = new MoviesRepository(
+    database as unknown as DatabaseService,
+  );
+
+  const result = await repository.list(7, {
+    search: '100%_real',
+    filter: 'rated_by_me',
+    year: 2026,
+    genreId: 27,
+    limit: 10,
+    offset: 20,
+  });
+
+  assert.deepEqual(result, []);
+  assert.match(database.calls[0]?.text ?? '', /m.title ILIKE \$2 ESCAPE/);
+  assert.match(database.calls[0]?.text ?? '', /LIMIT \$3/);
+  assert.match(database.calls[0]?.text ?? '', /OFFSET \$4/);
+  assert.match(database.calls[0]?.text ?? '', /rated_by_me/);
+  assert.match(
+    database.calls[0]?.text ?? '',
+    /EXTRACT\(YEAR FROM m\.release_date\)::int = \$6/,
+  );
+  assert.match(database.calls[0]?.text ?? '', /filter_mg\.genre_id = \$7/);
+  assert.deepEqual(database.calls[0]?.params, [
+    7,
+    '%100\\%\\_real%',
+    10,
+    20,
+    'rated_by_me',
+    2026,
+    27,
   ]);
 });
 

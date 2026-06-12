@@ -37,6 +37,25 @@ export interface RateMovieRequest {
   rating: number;
 }
 
+export const MOVIE_FILTERS = [
+  'all',
+  'released',
+  'upcoming',
+  'highly_rated',
+  'rated_by_me',
+] as const;
+
+export type MovieFilter = (typeof MOVIE_FILTERS)[number];
+
+export interface MovieSearchOptions {
+  search?: string;
+  filter: MovieFilter;
+  year?: number;
+  genreId?: number;
+  limit: number;
+  offset: number;
+}
+
 export interface Genre {
   id: number;
   name: string;

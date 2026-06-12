@@ -4,7 +4,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Genre, Movie, MovieRatingResult, SyncMode } from './movie.types.js';
+import {
+  Genre,
+  Movie,
+  MovieRatingResult,
+  MovieSearchOptions,
+  SyncMode,
+} from './movie.types.js';
+import { normalizeMovieSearchOptions } from './movie-query.js';
 import { MoviesRepository } from './movies.repository.js';
 import { TmdbClient } from './tmdb.client.js';
 
@@ -19,8 +26,14 @@ export class MoviesService {
     private readonly config: ConfigService,
   ) {}
 
-  async list(userId: number): Promise<Movie[]> {
-    return this.moviesRepository.list(userId);
+  async list(
+    userId: number,
+    options: Partial<MovieSearchOptions> = {},
+  ): Promise<Movie[]> {
+    return this.moviesRepository.list(
+      userId,
+      normalizeMovieSearchOptions(options),
+    );
   }
 
   async details(userId: number, movieId: number): Promise<Movie> {

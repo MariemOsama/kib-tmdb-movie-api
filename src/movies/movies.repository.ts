@@ -4,9 +4,15 @@ import {
   Genre,
   Movie,
   MovieRatingResult,
+  MovieSearchOptions,
   SyncMode,
   TmdbMovie,
 } from './movie.types.js';
+import {
+  buildMovieQueryParams,
+  MOVIE_QUERY_FILTER_SQL,
+  MOVIE_QUERY_RELEVANCE_ORDER_SQL,
+} from './movie-query.js';
 
 interface MovieCatalogRecord {
   id: string;
@@ -45,7 +51,7 @@ interface MovieRatingSummaryRecord {
 export class MoviesRepository {
   constructor(private readonly database: DatabaseService) {}
 
-  async list(userId: number): Promise<Movie[]> {
+  async list(userId: number, options: MovieSearchOptions): Promise<Movie[]> {
     const result = await this.database.query<MovieCatalogRecord>(
       `
       SELECT
@@ -97,10 +103,17 @@ export class MoviesRepository {
       FROM movies m
       LEFT JOIN movie_genres mg ON mg.movie_id = m.id
       LEFT JOIN genres g ON g.id = mg.genre_id
+      WHERE TRUE
+      ${MOVIE_QUERY_FILTER_SQL}
       GROUP BY m.id
-      ORDER BY m.popularity DESC, m.title ASC
+      ORDER BY
+        ${MOVIE_QUERY_RELEVANCE_ORDER_SQL},
+        m.popularity DESC,
+        m.title ASC
+      LIMIT $3
+      OFFSET $4
     `,
-      [userId],
+      buildMovieQueryParams(userId, options),
     );
 
     return result.rows.map(mapMovieCatalogRecordToMovie);

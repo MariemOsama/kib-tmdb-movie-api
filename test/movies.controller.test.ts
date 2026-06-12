@@ -58,14 +58,68 @@ void test('movie detail and rating endpoints delegate with current user id', asy
   ]);
 });
 
+void test('movie list endpoint delegates search query parameters', async () => {
+  const service = new FakeMoviesService();
+  const controller = new MoviesController(service as unknown as MoviesService);
+
+  const result = await controller.list(
+    user,
+    'obsession',
+    '15',
+    'released',
+    '2026',
+    '27',
+    '30',
+  );
+
+  assert.deepEqual(result, [movie]);
+  assert.deepEqual(service.calls, [
+    {
+      action: 'list',
+      userId: 7,
+      options: {
+        search: 'obsession',
+        filter: 'released',
+        year: 2026,
+        genreId: 27,
+        limit: 15,
+        offset: 30,
+      },
+    },
+  ]);
+});
+
 type ServiceCall =
+  | {
+      action: 'list';
+      userId: number;
+      options: {
+        search?: string;
+        filter: string;
+        year?: number;
+        genreId?: number;
+        limit: number;
+        offset: number;
+      };
+    }
   | { action: 'details'; userId: number; movieId: number }
   | { action: 'rate'; userId: number; movieId: number; rating: unknown };
 
 class FakeMoviesService {
   calls: ServiceCall[] = [];
 
-  list(): Promise<Movie[]> {
+  list(
+    userId: number,
+    options: {
+      search?: string;
+      filter: string;
+      year?: number;
+      genreId?: number;
+      limit: number;
+      offset: number;
+    },
+  ): Promise<Movie[]> {
+    this.calls.push({ action: 'list', userId, options });
     return Promise.resolve([movie]);
   }
 
