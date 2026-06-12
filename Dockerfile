@@ -2,14 +2,14 @@ FROM node:20-alpine AS deps
 
 WORKDIR /app
 COPY package.json package-lock.json* ./
-RUN npm install
+RUN npm ci
 
 FROM node:20-alpine AS build
 
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN npm run build
+RUN npm run build && test -f dist/main.js
 
 FROM node:20-alpine AS runtime
 
@@ -21,4 +21,4 @@ COPY --from=build /app/scripts ./scripts
 COPY package.json ./
 
 EXPOSE 8080
-CMD ["npm", "start"]
+CMD ["node", "dist/main.js"]

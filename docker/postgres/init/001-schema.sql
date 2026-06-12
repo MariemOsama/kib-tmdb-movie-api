@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS movie_genres (
 CREATE TABLE IF NOT EXISTS sync_state (
   source TEXT PRIMARY KEY,
   next_page INTEGER NOT NULL DEFAULT 1,
+  refresh_next_page INTEGER NOT NULL DEFAULT 1,
   total_pages INTEGER,
   last_start_page INTEGER,
   last_page_count INTEGER,
@@ -46,7 +47,19 @@ CREATE TABLE IF NOT EXISTS sync_state (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+ALTER TABLE sync_state
+  ADD COLUMN IF NOT EXISTS refresh_next_page INTEGER NOT NULL DEFAULT 1;
+
+CREATE TABLE IF NOT EXISTS users (
+  id BIGSERIAL PRIMARY KEY,
+  email TEXT NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE INDEX IF NOT EXISTS idx_movies_title ON movies USING btree (title);
 CREATE INDEX IF NOT EXISTS idx_movies_release_date ON movies (release_date);
 CREATE INDEX IF NOT EXISTS idx_movies_popularity ON movies (popularity DESC);
 CREATE INDEX IF NOT EXISTS idx_movie_genres_genre_id ON movie_genres (genre_id);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users (email);

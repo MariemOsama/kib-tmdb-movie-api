@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Query } from '@nestjs/common';
+import { Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiHeader,
@@ -10,9 +10,11 @@ import {
 } from '@nestjs/swagger';
 import * as movieTypes from './movie.types.js';
 import { MoviesService } from './movies.service.js';
+import { AuthGuard } from '../auth/auth.guard.js';
 
 @ApiTags('movies')
 @ApiBearerAuth()
+@UseGuards(AuthGuard)
 @Controller('movies')
 export class MoviesController {
   constructor(private readonly moviesService: MoviesService) {}
