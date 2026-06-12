@@ -15,7 +15,7 @@ import type { Genre, Movie, SyncMode } from './movie.types.js';
 import { MoviesService } from './movies.service.js';
 
 @ApiTags('movies')
-@ApiBearerAuth()
+@ApiBearerAuth('access-token')
 @UseGuards(AuthGuard)
 @Controller('movies')
 export class MoviesController {
