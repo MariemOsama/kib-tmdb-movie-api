@@ -12,6 +12,7 @@ import {
   SyncMode,
 } from './movie.types.js';
 import { normalizeMovieSearchOptions } from './movie-query.js';
+import { MovieCacheService } from './movie-cache.service.js';
 import { MoviesRepository } from './movies.repository.js';
 import { TmdbClient } from './tmdb.client.js';
 
@@ -24,6 +25,7 @@ export class MoviesService {
     private readonly moviesRepository: MoviesRepository,
     private readonly tmdbClient: TmdbClient,
     private readonly config: ConfigService,
+    private readonly cache: MovieCacheService,
   ) {}
 
   async list(
@@ -37,7 +39,12 @@ export class MoviesService {
   }
 
   async details(userId: number, movieId: number): Promise<Movie> {
-    const movie = await this.moviesRepository.findById(userId, movieId);
+    const key = await this.cache.movieDetailsKey(userId, movieId);
+    const movie = await this.cache.getOrSet(
+      key,
+      this.cache.movieTtlSeconds(),
+      () => this.moviesRepository.findById(userId, movieId),
+    );
     if (!movie) {
       throw new NotFoundException(`Movie ${movieId} was not found`);
     }
@@ -61,11 +68,19 @@ export class MoviesService {
       );
     }
 
-    return this.moviesRepository.rate(userId, movieId, rating);
+    const result = await this.moviesRepository.rate(userId, movieId, rating);
+    await Promise.all([
+      this.cache.invalidateMovieCatalog(),
+      this.cache.invalidateUser(userId),
+    ]);
+    return result;
   }
 
   async listGenres(): Promise<Genre[]> {
-    return this.moviesRepository.listGenres();
+    const key = await this.cache.genreListKey();
+    return this.cache.getOrSet(key, this.cache.genreTtlSeconds(), () =>
+      this.moviesRepository.listGenres(),
+    );
   }
 
   async syncPopularMovies(
@@ -85,6 +100,7 @@ export class MoviesService {
       mode,
     );
     if (!pagesToSync.length) {
+      await this.cache.invalidateMovieCatalog();
       return { mode, pages: [], synced: 0 };
     }
 
@@ -106,6 +122,7 @@ export class MoviesService {
       mode,
     );
 
+    await this.cache.invalidateMovieCatalog();
     return { mode, pages: batches.map((batch) => batch.page), synced };
   }
 

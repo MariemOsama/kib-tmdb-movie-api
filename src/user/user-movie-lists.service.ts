@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { MovieCacheService } from '../movies/movie-cache.service.js';
 import { normalizeMovieSearchOptions } from '../movies/movie-query.js';
 import {
   UserMovieListRemovalResult,
@@ -13,19 +14,28 @@ import { UserMovieListsRepository } from './user-movie-lists.repository.js';
 export class UserMovieListsService {
   constructor(
     private readonly userMovieListsRepository: UserMovieListsRepository,
+    private readonly cache: MovieCacheService,
   ) {}
 
   async list(
     userId: number,
     query: UserMovieListQuery,
   ): Promise<UserMovieListResponse> {
-    const movies = await this.userMovieListsRepository.list(
+    const options = normalizeMovieSearchOptions(query.options ?? {});
+    const key = await this.cache.userMovieListKey(
       userId,
       query.listType,
-      normalizeMovieSearchOptions(query.options ?? {}),
+      options,
     );
 
-    return { list: query.listType, movies };
+    return this.cache.getOrSet(key, this.cache.movieTtlSeconds(), async () => {
+      const movies = await this.userMovieListsRepository.list(
+        userId,
+        query.listType,
+        options,
+      );
+      return { list: query.listType, movies };
+    });
   }
 
   async add(
@@ -38,6 +48,7 @@ export class UserMovieListsService {
       movieId,
       listType,
     );
+    await this.cache.invalidateUser(userId);
 
     return { list: listType, movieId, added };
   }
@@ -52,6 +63,7 @@ export class UserMovieListsService {
       movieId,
       listType,
     );
+    await this.cache.invalidateUser(userId);
 
     return { list: listType, movieId, removed };
   }

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { MoviesService } from '../src/movies/movies.service.js';
 import type { ConfigService } from '@nestjs/config';
+import type { MovieCacheService } from '../src/movies/movie-cache.service.js';
 import type { MoviesRepository } from '../src/movies/movies.repository.js';
 import type { TmdbClient } from '../src/movies/tmdb.client.js';
 import type {
@@ -90,6 +91,7 @@ void test('syncPopularMovies syncs genres, requested pages, deduped movies, and 
     repository as unknown as MoviesRepository,
     tmdbClient as unknown as TmdbClient,
     new FakeConfigService() as unknown as ConfigService,
+    new FakeMovieCacheService() as unknown as MovieCacheService,
   );
 
   const result = await service.syncPopularMovies(3, 'next');
@@ -125,6 +127,7 @@ void test('syncPopularMovies clamps page count and passes refresh mode', async (
     repository as unknown as MoviesRepository,
     tmdbClient as unknown as TmdbClient,
     new FakeConfigService() as unknown as ConfigService,
+    new FakeMovieCacheService() as unknown as MovieCacheService,
   );
 
   const result = await service.syncPopularMovies(99, 'refresh');
@@ -140,6 +143,7 @@ void test('list normalizes search, limit, and offset before querying', async () 
     repository as unknown as MoviesRepository,
     new FakeTmdbClient([]) as unknown as TmdbClient,
     new FakeConfigService() as unknown as ConfigService,
+    new FakeMovieCacheService() as unknown as MovieCacheService,
   );
 
   const result = await service.list(7, {
@@ -171,6 +175,7 @@ void test('details returns a movie for the current user', async () => {
     repository as unknown as MoviesRepository,
     new FakeTmdbClient([]) as unknown as TmdbClient,
     new FakeConfigService() as unknown as ConfigService,
+    new FakeMovieCacheService() as unknown as MovieCacheService,
   );
 
   const result = await service.details(7, 1);
@@ -185,6 +190,7 @@ void test('rateMovie validates and stores a whole-number user rating', async () 
     repository as unknown as MoviesRepository,
     new FakeTmdbClient([]) as unknown as TmdbClient,
     new FakeConfigService() as unknown as ConfigService,
+    new FakeMovieCacheService() as unknown as MovieCacheService,
   );
 
   const result = await service.rateMovie(7, 1, 9);
@@ -208,6 +214,7 @@ void test('rateMovie rejects ratings outside 1 through 10', async () => {
     repository as unknown as MoviesRepository,
     new FakeTmdbClient([]) as unknown as TmdbClient,
     new FakeConfigService() as unknown as ConfigService,
+    new FakeMovieCacheService() as unknown as MovieCacheService,
   );
 
   await assert.rejects(
@@ -240,6 +247,7 @@ class FakeMoviesRepository {
   };
   lastFindByIdCall?: { userId: number; movieId: number };
   lastRateCall?: { userId: number; movieId: number; rating: number };
+  listCallCount = 0;
 
   constructor(private readonly pagesToSync: number[]) {}
 
@@ -283,6 +291,7 @@ class FakeMoviesRepository {
       offset: number;
     },
   ): Promise<Movie[]> {
+    this.listCallCount += 1;
     this.lastListCall = { userId, options };
     return Promise.resolve([storedMovie]);
   }
@@ -327,5 +336,58 @@ class FakeTmdbClient {
 class FakeConfigService {
   get(): string | undefined {
     return undefined;
+  }
+}
+
+class FakeMovieCacheService {
+  private readonly values = new Map<string, unknown>();
+  invalidatedMovieCatalog = 0;
+  invalidatedUsers: number[] = [];
+
+  getOrSet<T>(
+    key: string,
+    _ttlSeconds: number,
+    loader: () => Promise<T>,
+  ): Promise<T> {
+    if (this.values.has(key)) {
+      return Promise.resolve(this.values.get(key) as T);
+    }
+
+    return loader().then((value) => {
+      this.values.set(key, value);
+      return value;
+    });
+  }
+
+  movieListKey(userId: number, options: unknown): Promise<string> {
+    return Promise.resolve(`movies:list:${userId}:${JSON.stringify(options)}`);
+  }
+
+  movieDetailsKey(userId: number, movieId: number): Promise<string> {
+    return Promise.resolve(`movies:details:${userId}:${movieId}`);
+  }
+
+  genreListKey(): Promise<string> {
+    return Promise.resolve('movies:genres');
+  }
+
+  invalidateMovieCatalog(): Promise<void> {
+    this.invalidatedMovieCatalog += 1;
+    this.values.clear();
+    return Promise.resolve();
+  }
+
+  invalidateUser(userId: number): Promise<void> {
+    this.invalidatedUsers.push(userId);
+    this.values.clear();
+    return Promise.resolve();
+  }
+
+  movieTtlSeconds(): number {
+    return 60;
+  }
+
+  genreTtlSeconds(): number {
+    return 300;
   }
 }

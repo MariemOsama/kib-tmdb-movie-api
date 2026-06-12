@@ -4,9 +4,10 @@ import { DatabaseModule } from '../database/database.module.js';
 import { UserMovieListsRepository } from './user-movie-lists.repository.js';
 import { UserMovieListsService } from './user-movie-lists.service.js';
 import { UserController } from './user.controller.js';
+import { MoviesModule } from '../movies/movies.module.js';
 
 @Module({
-  imports: [AuthModule, DatabaseModule],
+  imports: [AuthModule, DatabaseModule, MoviesModule],
   controllers: [UserController],
   providers: [UserMovieListsRepository, UserMovieListsService],
 })
