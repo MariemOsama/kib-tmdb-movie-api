@@ -13,7 +13,10 @@
     "sync:tmdb": "node scripts/sync-tmdb.mjs",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "test": "node --test --import tsx test/*.test.ts"
+    "test": "node --test --import tsx test/*.test.ts",
+    "test:cov": "node --experimental-test-coverage --test --import tsx test/*.test.ts",
+    "test:e2e": "node --test --import tsx test/e2e/*.test.ts",
+    "test:perf": "node --test --import tsx test/cache.performance.test.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.15",
