@@ -25,7 +25,7 @@ import {
   ApiMovieQueryDocs,
   buildMovieSearchOptionsFromQuery,
 } from '../movies/movie-query.js';
-import { type MovieFilter } from '../movies/movie.types.js';
+import type { MovieFilter } from '../movies/movie.types.js';
 import {
   UserMovieListRemovalResult,
   UserMovieListResponse,
@@ -222,7 +222,7 @@ function buildListExample(
 ): UserMovieListResponse {
   return {
     list,
-    movies: [
+    data: [
       {
         id: 123,
         title: 'Example Movie',
@@ -251,5 +251,11 @@ function buildListExample(
         isInWatchlist: list === 'watchlist',
       },
     ],
+    pagination: {
+      limit: 20,
+      offset: 0,
+      count: 1,
+      hasMore: false,
+    },
   };
 }

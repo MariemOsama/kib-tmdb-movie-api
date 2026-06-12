@@ -30,6 +30,7 @@ import {
   type MovieFilter,
   MovieRatingResult,
   RateMovieRequest,
+  MovieListResponse,
   type SyncMode,
 } from './movie.types.js';
 import {
@@ -55,35 +56,43 @@ export class MoviesController {
   @ApiOkResponse({
     description: 'Movies stored in PostgreSQL.',
     schema: {
-      example: [
-        {
-          id: 123,
-          title: 'Example Movie',
-          originalTitle: 'Example Movie',
-          overview: 'Movie overview from TMDB.',
-          releaseDate: '2026-06-01',
-          posterPath: '/poster.jpg',
-          backdropPath: '/backdrop.jpg',
-          originalLanguage: 'en',
-          status: 'Released',
-          runtimeMinutes: 101,
-          budget: 1000000,
-          revenue: 2500000,
-          tagline: 'An example tagline.',
-          homepage: 'https://example.com',
-          imdbId: 'tt1234567',
-          popularity: 50.12,
-          tmdbRatingAverage: 7.8,
-          tmdbRatingCount: 120,
-          usersRatingAverage: 8.25,
-          userRatingCount: 4,
-          myRating: 9,
-          syncedAt: '2026-06-11T12:00:00.000Z',
-          genres: ['Action', 'Thriller'],
-          isFavorite: true,
-          isInWatchlist: false,
+      example: {
+        data: [
+          {
+            id: 123,
+            title: 'Example Movie',
+            originalTitle: 'Example Movie',
+            overview: 'Movie overview from TMDB.',
+            releaseDate: '2026-06-01',
+            posterPath: '/poster.jpg',
+            backdropPath: '/backdrop.jpg',
+            originalLanguage: 'en',
+            status: 'Released',
+            runtimeMinutes: 101,
+            budget: 1000000,
+            revenue: 2500000,
+            tagline: 'An example tagline.',
+            homepage: 'https://example.com',
+            imdbId: 'tt1234567',
+            popularity: 50.12,
+            tmdbRatingAverage: 7.8,
+            tmdbRatingCount: 120,
+            usersRatingAverage: 8.25,
+            userRatingCount: 4,
+            myRating: 9,
+            syncedAt: '2026-06-11T12:00:00.000Z',
+            genres: ['Action', 'Thriller'],
+            isFavorite: true,
+            isInWatchlist: false,
+          },
+        ],
+        pagination: {
+          limit: 20,
+          offset: 0,
+          count: 1,
+          hasMore: false,
         },
-      ],
+      },
     },
   })
   @ApiUnauthorizedResponse({
@@ -97,7 +106,7 @@ export class MoviesController {
     @Query('year') year?: string,
     @Query('genreId') genreId?: string,
     @Query('offset') offset = '0',
-  ): Promise<Movie[]> {
+  ): Promise<MovieListResponse> {
     return this.moviesService.list(
       user.id,
       buildMovieSearchOptionsFromQuery(

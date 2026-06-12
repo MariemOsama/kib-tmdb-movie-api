@@ -57,10 +57,14 @@ void test('watchlist endpoints delegate with current user id', async () => {
   await controller.addToWatchlist(user, 10);
   await controller.removeFromWatchlist(user, 10);
 
-  assert.deepEqual(response, { list: 'watchlist', movies: [ratedMovie] });
-  assert.equal(response.movies[0]?.usersRatingAverage, 8.25);
-  assert.equal(response.movies[0]?.userRatingCount, 4);
-  assert.equal(response.movies[0]?.myRating, 9);
+  assert.deepEqual(response, {
+    list: 'watchlist',
+    data: [ratedMovie],
+    pagination: { limit: 15, offset: 30, count: 1, hasMore: false },
+  });
+  assert.equal(response.data[0]?.usersRatingAverage, 8.25);
+  assert.equal(response.data[0]?.userRatingCount, 4);
+  assert.equal(response.data[0]?.myRating, 9);
   assert.deepEqual(service.calls, [
     {
       action: 'list',
@@ -98,10 +102,14 @@ void test('favorites endpoints delegate with current user id', async () => {
   await controller.addToFavorites(user, 10);
   await controller.removeFromFavorites(user, 10);
 
-  assert.deepEqual(response, { list: 'favorites', movies: [ratedMovie] });
-  assert.equal(response.movies[0]?.usersRatingAverage, 8.25);
-  assert.equal(response.movies[0]?.userRatingCount, 4);
-  assert.equal(response.movies[0]?.myRating, 9);
+  assert.deepEqual(response, {
+    list: 'favorites',
+    data: [ratedMovie],
+    pagination: { limit: 10, offset: 20, count: 1, hasMore: false },
+  });
+  assert.equal(response.data[0]?.usersRatingAverage, 8.25);
+  assert.equal(response.data[0]?.userRatingCount, 4);
+  assert.equal(response.data[0]?.myRating, 9);
   assert.deepEqual(service.calls, [
     {
       action: 'list',
@@ -165,7 +173,16 @@ class FakeUserMovieListsService {
     };
     const listType = query.listType;
     this.calls.push({ action: 'list', userId, listType, options });
-    return Promise.resolve({ list: listType, movies: [ratedMovie] });
+    return Promise.resolve({
+      list: listType,
+      data: [ratedMovie],
+      pagination: {
+        limit: options.limit,
+        offset: options.offset,
+        count: 1,
+        hasMore: false,
+      },
+    });
   }
 
   add(

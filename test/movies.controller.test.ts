@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { MoviesController } from '../src/movies/movies.controller.js';
 import type {
   Movie,
+  MovieListResponse,
   MovieRatingResult,
   SyncMode,
 } from '../src/movies/movie.types.js';
@@ -72,7 +73,10 @@ void test('movie list endpoint delegates search query parameters', async () => {
     '30',
   );
 
-  assert.deepEqual(result, [movie]);
+  assert.deepEqual(result, {
+    data: [movie],
+    pagination: { limit: 15, offset: 30, count: 1, hasMore: false },
+  });
   assert.deepEqual(service.calls, [
     {
       action: 'list',
@@ -118,9 +122,17 @@ class FakeMoviesService {
       limit: number;
       offset: number;
     },
-  ): Promise<Movie[]> {
+  ): Promise<MovieListResponse> {
     this.calls.push({ action: 'list', userId, options });
-    return Promise.resolve([movie]);
+    return Promise.resolve({
+      data: [movie],
+      pagination: {
+        limit: options.limit,
+        offset: options.offset,
+        count: 1,
+        hasMore: false,
+      },
+    });
   }
 
   listGenres(): Promise<[]> {

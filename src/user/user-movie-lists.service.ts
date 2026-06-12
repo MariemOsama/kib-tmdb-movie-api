@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { buildPaginatedResponse } from '../common/pagination.js';
 import { MovieCacheService } from '../movies/movie-cache.service.js';
 import { normalizeMovieSearchOptions } from '../movies/movie-query.js';
 import {
@@ -32,9 +33,15 @@ export class UserMovieListsService {
       const movies = await this.userMovieListsRepository.list(
         userId,
         query.listType,
-        options,
+        {
+          ...options,
+          limit: options.limit + 1,
+        },
       );
-      return { list: query.listType, movies };
+      return {
+        list: query.listType,
+        ...buildPaginatedResponse(movies, options.limit, options.offset),
+      };
     });
   }
 
