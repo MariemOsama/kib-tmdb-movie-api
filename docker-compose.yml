@@ -1,7 +1,7 @@
 services:
   api:
     build: .
-    container_name: kib-tmdb-movie-api
+    container_name: kib-tmdb-api
     depends_on:
       postgres:
         condition: service_healthy
@@ -21,8 +21,11 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_URL: redis://redis:6379
-      TMDB_API_KEY: ${TMDB_API_KEY}
+      JWT_SECRET: ${JWT_SECRET}
+      INTERNAL_SYNC_TOKEN: ${INTERNAL_SYNC_TOKEN}
+      TMDB_API_KEY: ${INTERNAL_SYNC_TOKEN}
       TMDB_BASE_URL: https://api.themoviedb.org/3
+      TMDB_SYNC_MAX_PAGES: 15
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:8080/ready').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
       interval: 10s
@@ -38,7 +41,9 @@ services:
     environment:
       API_BASE_URL: http://api:8080
       TMDB_SYNC_PAGES: 15
+      TMDB_SYNC_MAX_PAGES: 15
       TMDB_SYNC_MODE: ${TMDB_SYNC_MODE:-next}
+      INTERNAL_SYNC_TOKEN: ${INTERNAL_SYNC_TOKEN:-local-dev-sync-token}
     command: ["npm", "run", "sync:tmdb"]
     restart: "no"
 
