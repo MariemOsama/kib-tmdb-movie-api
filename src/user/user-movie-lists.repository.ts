@@ -22,6 +22,9 @@ interface MovieCatalogRecord {
   popularity: string;
   tmdb_rating_average: string;
   tmdb_rating_count: number;
+  user_rating_average: string | null;
+  user_rating_count: number;
+  my_rating: number | null;
   synced_at: string | null;
   genres: string[] | null;
   is_favorite: boolean;
@@ -55,6 +58,21 @@ export class UserMovieListsRepository {
         m.popularity,
         m.tmdb_rating_average,
         m.tmdb_rating_count,
+        (
+          SELECT ROUND(AVG(umr.rating)::numeric, 2)
+          FROM user_movie_ratings umr
+          WHERE umr.movie_id = m.id
+        ) AS user_rating_average,
+        (
+          SELECT COUNT(*)::int
+          FROM user_movie_ratings umr
+          WHERE umr.movie_id = m.id
+        ) AS user_rating_count,
+        (
+          SELECT umr.rating
+          FROM user_movie_ratings umr
+          WHERE umr.user_id = $1 AND umr.movie_id = m.id
+        ) AS my_rating,
         m.synced_at,
         COALESCE(array_agg(g.name ORDER BY g.name) FILTER (WHERE g.id IS NOT NULL), '{}') AS genres,
         EXISTS (
@@ -157,6 +175,10 @@ function mapMovieCatalogRecordToMovie(row: MovieCatalogRecord): Movie {
     popularity: Number(row.popularity),
     tmdbRatingAverage: Number(row.tmdb_rating_average),
     tmdbRatingCount: row.tmdb_rating_count,
+    usersRatingAverage:
+      row.user_rating_average === null ? null : Number(row.user_rating_average),
+    userRatingCount: row.user_rating_count,
+    myRating: row.my_rating,
     syncedAt: row.synced_at,
     genres: row.genres ?? [],
     isFavorite: row.is_favorite,

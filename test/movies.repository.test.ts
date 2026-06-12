@@ -27,6 +27,9 @@ void test('list maps database records into movie catalog objects', async () => {
           popularity: '12.5000',
           tmdb_rating_average: '7.80',
           tmdb_rating_count: 120,
+          user_rating_average: '8.25',
+          user_rating_count: 4,
+          my_rating: 9,
           synced_at: '2026-06-11T12:00:00.000Z',
           genres: ['Action', 'Thriller'],
           is_favorite: true,
@@ -63,12 +66,85 @@ void test('list maps database records into movie catalog objects', async () => {
       popularity: 12.5,
       tmdbRatingAverage: 7.8,
       tmdbRatingCount: 120,
+      usersRatingAverage: 8.25,
+      userRatingCount: 4,
+      myRating: 9,
       syncedAt: '2026-06-11T12:00:00.000Z',
       genres: ['Action', 'Thriller'],
       isFavorite: true,
       isInWatchlist: false,
     },
   ]);
+});
+
+void test('findById maps movie details with user rating metadata', async () => {
+  const database = new FakeDatabase([
+    {
+      rows: [
+        {
+          id: '10',
+          title: 'Detailed Movie',
+          original_title: null,
+          overview: 'Details.',
+          release_date: null,
+          poster_path: null,
+          backdrop_path: null,
+          original_language: 'en',
+          status: 'Released',
+          runtime_minutes: null,
+          budget: null,
+          revenue: null,
+          tagline: null,
+          homepage: null,
+          imdb_id: null,
+          popularity: '5.0000',
+          tmdb_rating_average: '6.50',
+          tmdb_rating_count: 20,
+          user_rating_average: null,
+          user_rating_count: 0,
+          my_rating: null,
+          synced_at: null,
+          genres: [],
+          is_favorite: false,
+          is_in_watchlist: true,
+        },
+      ],
+    },
+  ]);
+  const repository = new MoviesRepository(
+    database as unknown as DatabaseService,
+  );
+
+  const result = await repository.findById(7, 10);
+
+  assert.deepEqual(database.calls[0]?.params, [7, 10]);
+  assert.equal(result?.id, 10);
+  assert.equal(result?.usersRatingAverage, null);
+  assert.equal(result?.userRatingCount, 0);
+  assert.equal(result?.myRating, null);
+  assert.equal(result?.isInWatchlist, true);
+});
+
+void test("rate upserts a user's movie rating and returns the updated aggregate", async () => {
+  const database = new FakeDatabase([
+    { rows: [{ id: '10' }] },
+    { rows: [], rowCount: 1 },
+    { rows: [{ user_rating_average: '8.50', user_rating_count: 2 }] },
+  ]);
+  const repository = new MoviesRepository(
+    database as unknown as DatabaseService,
+  );
+
+  const result = await repository.rate(7, 10, 9);
+
+  assert.match(database.calls[1]?.text ?? '', /INSERT INTO user_movie_ratings/);
+  assert.deepEqual(database.calls[1]?.params, [7, 10, 9]);
+  assert.deepEqual(result, {
+    movieId: 10,
+    rating: 9,
+    usersRatingAverage: 8.5,
+    userRatingCount: 2,
+  });
 });
 
 void test('getSyncPages returns next pages with wrap-around', async () => {
@@ -185,7 +261,12 @@ class FakeDatabase {
   calls: Array<{ text: string; params: unknown[] }> = [];
   private responseIndex = 0;
 
-  constructor(private readonly responses: Array<{ rows: QueryResultRow[] }>) {}
+  constructor(
+    private readonly responses: Array<{
+      rows: QueryResultRow[];
+      rowCount?: number;
+    }>,
+  ) {}
 
   query<T extends QueryResultRow = QueryResultRow>(
     text: string,
@@ -197,7 +278,7 @@ class FakeDatabase {
     return Promise.resolve({
       rows: response.rows as T[],
       command: '',
-      rowCount: response.rows.length,
+      rowCount: response.rowCount ?? response.rows.length,
       oid: 0,
       fields: [],
     });

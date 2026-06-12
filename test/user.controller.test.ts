@@ -1,21 +1,56 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import type { UserMovieListType } from '../src/user/user-movie-list.types.js';
+import type {
+  UserMovieListResponse,
+  UserMovieListType,
+} from '../src/user/user-movie-list.types.js';
 import type { UserMovieListsService } from '../src/user/user-movie-lists.service.js';
 import { UserController } from '../src/user/user.controller.js';
+import type { Movie } from '../src/movies/movie.types.js';
 
 const user = { id: 7, email: 'mariem@example.com' };
 
+const ratedMovie: Movie = {
+  id: 10,
+  title: 'Rated Movie',
+  originalTitle: 'Rated Movie',
+  overview: 'A movie with ratings.',
+  releaseDate: '2026-06-01',
+  posterPath: '/poster.jpg',
+  backdropPath: '/backdrop.jpg',
+  originalLanguage: 'en',
+  status: 'Released',
+  runtimeMinutes: 101,
+  budget: 1000000,
+  revenue: 2500000,
+  tagline: null,
+  homepage: null,
+  imdbId: 'tt1234567',
+  popularity: 50.12,
+  tmdbRatingAverage: 7.8,
+  tmdbRatingCount: 120,
+  usersRatingAverage: 8.25,
+  userRatingCount: 4,
+  myRating: 9,
+  syncedAt: '2026-06-11T12:00:00.000Z',
+  genres: ['Action', 'Thriller'],
+  isFavorite: true,
+  isInWatchlist: true,
+};
 void test('watchlist endpoints delegate with current user id', async () => {
   const service = new FakeUserMovieListsService();
   const controller = new UserController(
     service as unknown as UserMovieListsService,
   );
 
-  await controller.watchlist(user);
+  const response = await controller.watchlist(user);
   await controller.addToWatchlist(user, 10);
   await controller.removeFromWatchlist(user, 10);
 
+  assert.deepEqual(response, { list: 'watchlist', movies: [ratedMovie] });
+  assert.equal(response.movies[0]?.usersRatingAverage, 8.25);
+  assert.equal(response.movies[0]?.userRatingCount, 4);
+  assert.equal(response.movies[0]?.myRating, 9);
   assert.deepEqual(service.calls, [
     { action: 'list', userId: 7, listType: 'watchlist' },
     { action: 'add', userId: 7, movieId: 10, listType: 'watchlist' },
@@ -29,10 +64,14 @@ void test('favorites endpoints delegate with current user id', async () => {
     service as unknown as UserMovieListsService,
   );
 
-  await controller.favorites(user);
+  const response = await controller.favorites(user);
   await controller.addToFavorites(user, 10);
   await controller.removeFromFavorites(user, 10);
 
+  assert.deepEqual(response, { list: 'favorites', movies: [ratedMovie] });
+  assert.equal(response.movies[0]?.usersRatingAverage, 8.25);
+  assert.equal(response.movies[0]?.userRatingCount, 4);
+  assert.equal(response.movies[0]?.myRating, 9);
   assert.deepEqual(service.calls, [
     { action: 'list', userId: 7, listType: 'favorites' },
     { action: 'add', userId: 7, movieId: 10, listType: 'favorites' },
@@ -61,9 +100,9 @@ class FakeUserMovieListsService {
   list(
     userId: number,
     listType: UserMovieListType,
-  ): Promise<{ list: UserMovieListType; movies: [] }> {
+  ): Promise<UserMovieListResponse> {
     this.calls.push({ action: 'list', userId, listType });
-    return Promise.resolve({ list: listType, movies: [] });
+    return Promise.resolve({ list: listType, movies: [ratedMovie] });
   }
 
   add(

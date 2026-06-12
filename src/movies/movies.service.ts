@@ -1,6 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Genre, Movie, SyncMode } from './movie.types.js';
+import { Genre, Movie, MovieRatingResult, SyncMode } from './movie.types.js';
 import { MoviesRepository } from './movies.repository.js';
 import { TmdbClient } from './tmdb.client.js';
 
@@ -17,6 +21,34 @@ export class MoviesService {
 
   async list(userId: number): Promise<Movie[]> {
     return this.moviesRepository.list(userId);
+  }
+
+  async details(userId: number, movieId: number): Promise<Movie> {
+    const movie = await this.moviesRepository.findById(userId, movieId);
+    if (!movie) {
+      throw new NotFoundException(`Movie ${movieId} was not found`);
+    }
+
+    return movie;
+  }
+
+  async rateMovie(
+    userId: number,
+    movieId: number,
+    rating: unknown,
+  ): Promise<MovieRatingResult> {
+    if (
+      typeof rating !== 'number' ||
+      !Number.isInteger(rating) ||
+      rating < 1 ||
+      rating > 10
+    ) {
+      throw new BadRequestException(
+        'Rating must be an integer between 1 and 10',
+      );
+    }
+
+    return this.moviesRepository.rate(userId, movieId, rating);
   }
 
   async listGenres(): Promise<Genre[]> {

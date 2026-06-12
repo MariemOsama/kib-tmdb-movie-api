@@ -1,6 +1,12 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service.js';
-import { Genre, Movie, SyncMode, TmdbMovie } from './movie.types.js';
+import {
+  Genre,
+  Movie,
+  MovieRatingResult,
+  SyncMode,
+  TmdbMovie,
+} from './movie.types.js';
 
 interface MovieCatalogRecord {
   id: string;
@@ -21,10 +27,18 @@ interface MovieCatalogRecord {
   popularity: string;
   tmdb_rating_average: string;
   tmdb_rating_count: number;
+  user_rating_average: string | null;
+  user_rating_count: number;
+  my_rating: number | null;
   synced_at: string | null;
   genres: string[] | null;
   is_favorite: boolean;
   is_in_watchlist: boolean;
+}
+
+interface MovieRatingSummaryRecord {
+  user_rating_average: string;
+  user_rating_count: number;
 }
 
 @Injectable()
@@ -53,6 +67,21 @@ export class MoviesRepository {
         m.popularity,
         m.tmdb_rating_average,
         m.tmdb_rating_count,
+        (
+          SELECT ROUND(AVG(umr.rating)::numeric, 2)
+          FROM user_movie_ratings umr
+          WHERE umr.movie_id = m.id
+        ) AS user_rating_average,
+        (
+          SELECT COUNT(*)::int
+          FROM user_movie_ratings umr
+          WHERE umr.movie_id = m.id
+        ) AS user_rating_count,
+        (
+          SELECT umr.rating
+          FROM user_movie_ratings umr
+          WHERE umr.user_id = $1 AND umr.movie_id = m.id
+        ) AS my_rating,
         m.synced_at,
         COALESCE(array_agg(g.name ORDER BY g.name) FILTER (WHERE g.id IS NOT NULL), '{}') AS genres,
         EXISTS (
@@ -75,6 +104,105 @@ export class MoviesRepository {
     );
 
     return result.rows.map(mapMovieCatalogRecordToMovie);
+  }
+
+  async findById(userId: number, movieId: number): Promise<Movie | null> {
+    const result = await this.database.query<MovieCatalogRecord>(
+      `
+      SELECT
+        m.id,
+        m.title,
+        m.original_title,
+        m.overview,
+        m.release_date,
+        m.poster_path,
+        m.backdrop_path,
+        m.original_language,
+        m.status,
+        m.runtime_minutes,
+        m.budget,
+        m.revenue,
+        m.tagline,
+        m.homepage,
+        m.imdb_id,
+        m.popularity,
+        m.tmdb_rating_average,
+        m.tmdb_rating_count,
+        (
+          SELECT ROUND(AVG(umr.rating)::numeric, 2)
+          FROM user_movie_ratings umr
+          WHERE umr.movie_id = m.id
+        ) AS user_rating_average,
+        (
+          SELECT COUNT(*)::int
+          FROM user_movie_ratings umr
+          WHERE umr.movie_id = m.id
+        ) AS user_rating_count,
+        (
+          SELECT umr.rating
+          FROM user_movie_ratings umr
+          WHERE umr.user_id = $1 AND umr.movie_id = m.id
+        ) AS my_rating,
+        m.synced_at,
+        COALESCE(array_agg(g.name ORDER BY g.name) FILTER (WHERE g.id IS NOT NULL), '{}') AS genres,
+        EXISTS (
+          SELECT 1
+          FROM user_favorites uf
+          WHERE uf.user_id = $1 AND uf.movie_id = m.id
+        ) AS is_favorite,
+        EXISTS (
+          SELECT 1
+          FROM user_watchlist uw
+          WHERE uw.user_id = $1 AND uw.movie_id = m.id
+        ) AS is_in_watchlist
+      FROM movies m
+      LEFT JOIN movie_genres mg ON mg.movie_id = m.id
+      LEFT JOIN genres g ON g.id = mg.genre_id
+      WHERE m.id = $2
+      GROUP BY m.id
+    `,
+      [userId, movieId],
+    );
+
+    const movie = result.rows[0];
+    return movie ? mapMovieCatalogRecordToMovie(movie) : null;
+  }
+
+  async rate(
+    userId: number,
+    movieId: number,
+    rating: number,
+  ): Promise<MovieRatingResult> {
+    await this.ensureMovieExists(movieId);
+    await this.database.query(
+      `
+        INSERT INTO user_movie_ratings (user_id, movie_id, rating)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (user_id, movie_id) DO UPDATE SET
+          rating = EXCLUDED.rating,
+          updated_at = NOW()
+      `,
+      [userId, movieId, rating],
+    );
+
+    const summary = await this.database.query<MovieRatingSummaryRecord>(
+      `
+        SELECT
+          COALESCE(ROUND(AVG(rating)::numeric, 2), 0) AS user_rating_average,
+          COUNT(*)::int AS user_rating_count
+        FROM user_movie_ratings
+        WHERE movie_id = $1
+      `,
+      [movieId],
+    );
+    const row = summary.rows[0];
+
+    return {
+      movieId,
+      rating,
+      usersRatingAverage: row ? Number(row.user_rating_average) : rating,
+      userRatingCount: row?.user_rating_count ?? 1,
+    };
   }
 
   async listGenres(): Promise<Genre[]> {
@@ -318,6 +446,21 @@ export class MoviesRepository {
 
     return movies.length;
   }
+
+  private async ensureMovieExists(movieId: number): Promise<void> {
+    const result = await this.database.query<{ id: string }>(
+      `
+        SELECT id
+        FROM movies
+        WHERE id = $1
+      `,
+      [movieId],
+    );
+
+    if (!result.rows[0]) {
+      throw new NotFoundException(`Movie ${movieId} was not found`);
+    }
+  }
 }
 
 function mapMovieCatalogRecordToMovie(row: MovieCatalogRecord): Movie {
@@ -340,6 +483,10 @@ function mapMovieCatalogRecordToMovie(row: MovieCatalogRecord): Movie {
     popularity: Number(row.popularity),
     tmdbRatingAverage: Number(row.tmdb_rating_average),
     tmdbRatingCount: row.tmdb_rating_count,
+    usersRatingAverage:
+      row.user_rating_average === null ? null : Number(row.user_rating_average),
+    userRatingCount: row.user_rating_count,
+    myRating: row.my_rating,
     syncedAt: row.synced_at,
     genres: row.genres ?? [],
     isFavorite: row.is_favorite,

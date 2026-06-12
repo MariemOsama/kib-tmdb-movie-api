@@ -17,10 +17,24 @@ export interface Movie {
   popularity: number;
   tmdbRatingAverage: number;
   tmdbRatingCount: number;
+  usersRatingAverage: number | null;
+  userRatingCount: number;
+  myRating: number | null;
   syncedAt: string | null;
   genres: string[];
   isFavorite: boolean;
   isInWatchlist: boolean;
+}
+
+export interface MovieRatingResult {
+  movieId: number;
+  rating: number;
+  usersRatingAverage: number;
+  userRatingCount: number;
+}
+
+export interface RateMovieRequest {
+  rating: number;
 }
 
 export interface Genre {
