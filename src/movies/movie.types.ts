@@ -19,6 +19,8 @@ export interface Movie {
   tmdbRatingCount: number;
   syncedAt: string | null;
   genres: string[];
+  isFavorite: boolean;
+  isInWatchlist: boolean;
 }
 
 export interface Genre {

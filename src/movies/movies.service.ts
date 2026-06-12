@@ -15,8 +15,8 @@ export class MoviesService {
     private readonly config: ConfigService,
   ) {}
 
-  async list(): Promise<Movie[]> {
-    return this.moviesRepository.list();
+  async list(userId: number): Promise<Movie[]> {
+    return this.moviesRepository.list(userId);
   }
 
   async listGenres(): Promise<Genre[]> {

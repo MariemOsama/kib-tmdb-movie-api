@@ -8,12 +8,14 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import * as movieTypes from './movie.types.js';
-import { MoviesService } from './movies.service.js';
 import { AuthGuard } from '../auth/auth.guard.js';
+import type { AuthenticatedUser } from '../auth/auth.types.js';
+import { CurrentUser } from '../auth/current-user.decorator.js';
+import type { Genre, Movie, SyncMode } from './movie.types.js';
+import { MoviesService } from './movies.service.js';
 
 @ApiTags('movies')
-@ApiBearerAuth()
+@ApiBearerAuth('access-token')
 @UseGuards(AuthGuard)
 @Controller('movies')
 export class MoviesController {
@@ -23,7 +25,7 @@ export class MoviesController {
   @ApiOperation({
     summary: 'List synced movies',
     description:
-      'Returns the movie catalog currently stored in PostgreSQL, ordered by TMDB popularity and title. The catalog is populated by the TMDB sync endpoint or the Docker sync job. Requires a bearer token from login/register.',
+      'Returns the movie catalog currently stored in PostgreSQL, ordered by TMDB popularity and title. Each movie includes user-specific isFavorite and isInWatchlist flags for the authenticated user. The catalog is populated by the TMDB sync endpoint or the Docker sync job. Requires a bearer token from login/register.',
   })
   @ApiOkResponse({
     description: 'Movies stored in PostgreSQL.',
@@ -50,6 +52,8 @@ export class MoviesController {
           tmdbRatingCount: 120,
           syncedAt: '2026-06-11T12:00:00.000Z',
           genres: ['Action', 'Thriller'],
+          isFavorite: true,
+          isInWatchlist: false,
         },
       ],
     },
@@ -57,8 +61,8 @@ export class MoviesController {
   @ApiUnauthorizedResponse({
     description: 'Bearer token is missing, invalid, or expired.',
   })
-  list(): Promise<movieTypes.Movie[]> {
-    return this.moviesService.list();
+  list(@CurrentUser() user: AuthenticatedUser): Promise<Movie[]> {
+    return this.moviesService.list(user.id);
   }
 
   @Get('genres')
@@ -79,7 +83,7 @@ export class MoviesController {
   @ApiUnauthorizedResponse({
     description: 'Bearer token is missing, invalid, or expired.',
   })
-  genres(): Promise<movieTypes.Genre[]> {
+  genres(): Promise<Genre[]> {
     return this.moviesService.listGenres();
   }
 
@@ -126,8 +130,8 @@ export class MoviesController {
   })
   sync(
     @Query('pages') pages = '1',
-    @Query('mode') mode: movieTypes.SyncMode = 'next',
-  ): Promise<{ mode: movieTypes.SyncMode; pages: number[]; synced: number }> {
+    @Query('mode') mode: SyncMode = 'next',
+  ): Promise<{ mode: SyncMode; pages: number[]; synced: number }> {
     return this.moviesService.syncPopularMovies(
       Number(pages),
       mode === 'refresh' ? 'refresh' : 'next',

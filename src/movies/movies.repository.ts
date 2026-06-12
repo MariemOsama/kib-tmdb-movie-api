@@ -23,14 +23,17 @@ interface MovieCatalogRecord {
   tmdb_rating_count: number;
   synced_at: string | null;
   genres: string[] | null;
+  is_favorite: boolean;
+  is_in_watchlist: boolean;
 }
 
 @Injectable()
 export class MoviesRepository {
   constructor(private readonly database: DatabaseService) {}
 
-  async list(): Promise<Movie[]> {
-    const result = await this.database.query<MovieCatalogRecord>(`
+  async list(userId: number): Promise<Movie[]> {
+    const result = await this.database.query<MovieCatalogRecord>(
+      `
       SELECT
         m.id,
         m.title,
@@ -51,13 +54,25 @@ export class MoviesRepository {
         m.tmdb_rating_average,
         m.tmdb_rating_count,
         m.synced_at,
-        COALESCE(array_agg(g.name ORDER BY g.name) FILTER (WHERE g.id IS NOT NULL), '{}') AS genres
+        COALESCE(array_agg(g.name ORDER BY g.name) FILTER (WHERE g.id IS NOT NULL), '{}') AS genres,
+        EXISTS (
+          SELECT 1
+          FROM user_favorites uf
+          WHERE uf.user_id = $1 AND uf.movie_id = m.id
+        ) AS is_favorite,
+        EXISTS (
+          SELECT 1
+          FROM user_watchlist uw
+          WHERE uw.user_id = $1 AND uw.movie_id = m.id
+        ) AS is_in_watchlist
       FROM movies m
       LEFT JOIN movie_genres mg ON mg.movie_id = m.id
       LEFT JOIN genres g ON g.id = mg.genre_id
       GROUP BY m.id
       ORDER BY m.popularity DESC, m.title ASC
-    `);
+    `,
+      [userId],
+    );
 
     return result.rows.map(mapMovieCatalogRecordToMovie);
   }
@@ -327,6 +342,8 @@ function mapMovieCatalogRecordToMovie(row: MovieCatalogRecord): Movie {
     tmdbRatingCount: row.tmdb_rating_count,
     syncedAt: row.synced_at,
     genres: row.genres ?? [],
+    isFavorite: row.is_favorite,
+    isInWatchlist: row.is_in_watchlist,
   };
 }
 

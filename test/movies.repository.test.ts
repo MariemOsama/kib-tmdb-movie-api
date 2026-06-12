@@ -29,6 +29,8 @@ void test('list maps database records into movie catalog objects', async () => {
           tmdb_rating_count: 120,
           synced_at: '2026-06-11T12:00:00.000Z',
           genres: ['Action', 'Thriller'],
+          is_favorite: true,
+          is_in_watchlist: false,
         },
       ],
     },
@@ -37,7 +39,9 @@ void test('list maps database records into movie catalog objects', async () => {
     database as unknown as DatabaseService,
   );
 
-  const result = await repository.list();
+  const result = await repository.list(7);
+
+  assert.deepEqual(database.calls[0]?.params, [7]);
 
   assert.deepEqual(result, [
     {
@@ -61,6 +65,8 @@ void test('list maps database records into movie catalog objects', async () => {
       tmdbRatingCount: 120,
       syncedAt: '2026-06-11T12:00:00.000Z',
       genres: ['Action', 'Thriller'],
+      isFavorite: true,
+      isInWatchlist: false,
     },
   ]);
 });
